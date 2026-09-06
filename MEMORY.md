@@ -165,9 +165,17 @@
   `misc/github_env_linux`、`misc/deps_linux/`、`.devcontainer/`，并更新了
   CONTRIBUTING.md 中对应的 Docker 镜像说明。`pr-windows-flatrim.yml` 重写为
   自包含的 Windows 编译检查（不再用 `pr_base` action，改用与 `release.yml`
-  相同的配置，vcpkg 缓存用 `x-gha`），push 到 main 时验证编译。服务器仍可
-  在 Linux VPS 上跑（`build.sh` + `misc/release/server/docker-compose.yml`，
+  相同的配置，vcpkg 缓存用 `x-gha`）。**最终三个检查（Flatrim 编译、
+  Prettier、Formatting）在 713ff1d 全部通过。**
+  服务器仍可在 Linux VPS 上跑（`build.sh` + `misc/release/server/docker-compose.yml`，
   用的是官方 node 镜像，与删除的 Dockerfile 无关）。
+- **CI 坑（重要）**：Windows 上把 vcpkg 挪到 `C:\vcpkg` 的步骤里，`robocopy`
+  成功时退出码是 **1**，pwsh 会把 `$LASTEXITCODE` 当作脚本进程退出码，
+  导致步骤"无错误输出但退出码 1"而失败。修复：脚本末尾显式 `exit 0`，
+  并设 `$ErrorActionPreference='Stop'`（真错误会抛出可见异常）。
+  两处相同的步骤（`pr-windows-flatrim.yml` 和 `release.yml`）都加了。
+  另外 runner 会被复用，`C:\vcpkg` 可能残留上一轮副本，删除失败无碍
+  （robocopy /E 是合并复制），已做成 best-effort。
 
 - 构建命令（见 `CLAUDE.md`）：必须在 `build/` 目录里跑 `cmake --build .`；
   测试 `ctest --verbose`；单个测试 `./unit/unit [Tag]`。
