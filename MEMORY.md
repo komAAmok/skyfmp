@@ -157,6 +157,18 @@
 
 ## 六、有用的上下文
 
+- **2026-09-06 更新（已提交并推送）**：按用户要求移除了 Linux 和 Skyrim VR 支持，
+  并修复了 GitHub Actions 的失败。删除的 workflow：`pr-linux-variants.yml`、
+  `linux-build-base.yml`、`build-docker-images.yml`（Linux CI）、
+  `pr-windows-skyrimvr.yml`（VR）、`trigger-installer.yml`（需要上游组织 PAT，
+  每次 push 必失败）。同时删除了仅被它们引用的 `Dockerfile`、`.dockerignore`、
+  `misc/github_env_linux`、`misc/deps_linux/`、`.devcontainer/`，并更新了
+  CONTRIBUTING.md 中对应的 Docker 镜像说明。`pr-windows-flatrim.yml` 重写为
+  自包含的 Windows 编译检查（不再用 `pr_base` action，改用与 `release.yml`
+  相同的配置，vcpkg 缓存用 `x-gha`），push 到 main 时验证编译。服务器仍可
+  在 Linux VPS 上跑（`build.sh` + `misc/release/server/docker-compose.yml`，
+  用的是官方 node 镜像，与删除的 Dockerfile 无关）。
+
 - 构建命令（见 `CLAUDE.md`）：必须在 `build/` 目录里跑 `cmake --build .`；
   测试 `ctest --verbose`；单个测试 `./unit/unit [Tag]`。
 - 本地打包发布 zip：

@@ -1,8 +1,0 @@
-{
-  "name": "SkyMP Codespace",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "postCreateCommand": "cmake -P misc/install_git_hooks.cmake",
-  "remoteUser": "node"
-}

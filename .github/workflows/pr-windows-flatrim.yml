@@ -1,38 +1,92 @@
 name: PR Windows Flatrim (AE/SE)
 
+# Compile check for the Windows client + server on every push to main.
+# The upstream pr_base action cannot run in this fork (it needs organization
+# PATs and pushes NuGet packages to the skyrim-multiplayer package registry),
+# so this workflow mirrors the configure/build steps of release.yml instead.
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  schedule:
-    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+  VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
   VCPKG_FEATURE_FLAGS: 'manifests'
 
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
           submodules: 'true'
-      - uses: ./.github/actions/pr_base
-        with:
-          DESCRIPTION: 'Flatrim'
-          SKYRIM_VR_FLAG: OFF
-          SP_NEXUS_ARTIFACT_NAME: Skyrim Platform %SP_VERSION%
-          DEPLOY_BRANCH: ""
-          DIST_ARTIFACT_NAME: dist
-          SERVER_DIST_ARTIFACT_NAME: server-dist
-          SKYMP5_PATCHES_PAT: ${{ secrets.SKYMP5_PATCHES_PAT }}
-          NUGET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The runner workspace lives on a small volume, and vcpkg buildtrees for
+      # CEF/NodeJS/OpenSSL do not fit there. The root CMakeLists.txt expects
+      # C:/vcpkg when running in CI on Windows.
+      - name: Move vcpkg to a larger drive
+        shell: pwsh
+        run: |
+          $target = 'C:\vcpkg'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'vcpkg'
+          if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          robocopy $source $target /E /NFL /NDL /NJH /NJS /MT:8 | Out-Null
+          if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
+          Remove-Item -Recurse -Force $source
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: C:/vcpkg/bootstrap-vcpkg.bat
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B "${{ github.workspace }}/build" `
+            -DVCPKG_ROOT=C:/vcpkg `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DSKYRIM_VR=OFF `
+            -DBUILD_CLIENT=ON `
+            -DBUILD_SKYRIM_PLATFORM=ON `
+            -DBUILD_FRONT=ON `
+            -DBUILD_FRONT_FROM_LOCAL_SOURCES=ON `
+            -DBUILD_NODEJS=OFF `
+            -DBUILD_UNIT_TESTS=OFF `
+            -DDOWNLOAD_SKYRIM_DATA=OFF `
+            -DPREPARE_NEXUS_ARCHIVES=OFF `
+            -DOFFLINE_MODE=ON `
+            -DUNIFIED_CLIENT_DEPS=ON `
+            -DCPPCOV_PATH=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build "${{ github.workspace }}/build" --config ${{ env.BUILD_TYPE }}
+
+      - name: Sanity check the build output
+        shell: pwsh
+        run: |
+          $required = @(
+            'build/dist/client/Data/SKSE/Plugins/SkyrimPlatform.dll',
+            'build/dist/client/Data/SKSE/Plugins/MpClientPlugin.dll',
+            'build/dist/client/Data/Platform/Plugins/skymp5-client.js',
+            'build/dist/client/Data/Platform/UI/index.html',
+            'build/dist/client/Data/SKSE/Plugins/version-1-5-97-0.bin',
+            'build/dist/client/Data/SKSE/Plugins/versionlib-1-6-640-0.bin',
+            'build/dist/server/dist_back/skymp5-server.js',
+            'build/dist/server/scam_native.node'
+          )
+          $missing = $required | Where-Object { -not (Test-Path (Join-Path $env:GITHUB_WORKSPACE $_)) }
+          if ($missing) {
+            throw "Missing expected build output:`n$($missing -join "`n")"
+          }
+          Write-Host 'All expected files are present.'
