@@ -99,6 +99,11 @@ jobs:
             Start-Sleep -Seconds 10
           }
 
+          # robocopy reports success as exit code 1, and pwsh propagates
+          # $LASTEXITCODE as the script's exit code, which would fail the step
+          # for no reason. End explicitly with 0.
+          exit 0
+
       - name: Bootstrap vcpkg
         shell: pwsh
         run: C:/vcpkg/bootstrap-vcpkg.bat
