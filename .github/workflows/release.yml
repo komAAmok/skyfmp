@@ -71,13 +71,33 @@ jobs:
       - name: Move vcpkg to a larger drive
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $target = 'C:\vcpkg'
           $source = Join-Path $env:GITHUB_WORKSPACE 'vcpkg'
-          if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+
+          # Runners are reused, so a stale C:\vcpkg from a previous run may
+          # exist. Removing it is best-effort: freshly written files can be
+          # briefly locked (Defender), and robocopy /E just merges into
+          # whatever is left behind.
+          for ($i = 0; $i -lt 5; $i++) {
+            Remove-Item -Recurse -Force $target -ErrorAction SilentlyContinue
+            if (-not (Test-Path $target)) { break }
+            Start-Sleep -Seconds 10
+          }
+
           New-Item -ItemType Directory -Force -Path $target | Out-Null
           robocopy $source $target /E /NFL /NDL /NJH /NJS /MT:8 | Out-Null
-          if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
-          Remove-Item -Recurse -Force $source
+          if ($LASTEXITCODE -ge 8) {
+            throw "robocopy failed with exit code $LASTEXITCODE"
+          }
+
+          # Same best-effort cleanup for the workspace copy: it only frees
+          # space, so a leftover does not fail the build.
+          for ($i = 0; $i -lt 5; $i++) {
+            Remove-Item -Recurse -Force $source -ErrorAction SilentlyContinue
+            if (-not (Test-Path $source)) { break }
+            Start-Sleep -Seconds 10
+          }
 
       - name: Bootstrap vcpkg
         shell: pwsh
