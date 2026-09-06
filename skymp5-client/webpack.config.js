@@ -60,11 +60,26 @@ if (process.env['DEPLOY_PLUGIN']?.includes('true')) {
     plugins.push(new WebpackShellPluginNext({ onBuildEnd: { scripts: [zipCommand] } }))
 }
 
+// Release builds drop the inline source map: it more than doubles the size of the
+// plugin file that SkyrimPlatform reads and hands to the JS engine on every game
+// start and hot reload.
+//
+// Names are deliberately left untouched (no minification, no scope hoisting):
+// several widgets are shipped to the CEF UI by stringifying a function and
+// injecting variables by name (see lib/functionInfo.ts), and service lookup keys
+// off constructor names. Renaming either would break them at runtime.
+const isDevBuild = process.env['SKYMP_DEV_BUILD'] === 'true';
+
 module.exports = {
     target: "node",
     plugins,
-    mode: 'development',
-    devtool: 'inline-source-map',
+    mode: isDevBuild ? 'development' : 'production',
+    devtool: isDevBuild ? 'inline-source-map' : false,
+    optimization: {
+        minimize: false,
+        concatenateModules: false,
+        mangleExports: false,
+    },
     entry: { main: entryPoint, },
     output: { path: outputFolder, filename: outputFilename },
     resolve: { extensions: ['.ts', '.tsx', '.js', '.jsx'] },

@@ -22,6 +22,10 @@ endif()
 if(OFFLINE_MODE)
     string(JSON SERVER_SETTINGS_JSON SET "${SERVER_SETTINGS_JSON}" "offlineMode" "true")
     string(JSON SERVER_SETTINGS_JSON SET "${SERVER_SETTINGS_JSON}" "master" "\"\"")
+    # Empty means "all interfaces", so players on the LAN / a VPN / the internet
+    # can reach the server without extra configuration. Set it to a specific
+    # address to restrict which adapter the server listens on.
+    string(JSON SERVER_SETTINGS_JSON SET "${SERVER_SETTINGS_JSON}" "listenHost" "\"\"")
 else()
     string(JSON SERVER_SETTINGS_JSON SET "${SERVER_SETTINGS_JSON}" "offlineMode" "false")
     string(JSON SERVER_SETTINGS_JSON SET "${SERVER_SETTINGS_JSON}" "master" "\"https://gateway.skymp.net\"")

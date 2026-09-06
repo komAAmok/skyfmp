@@ -1,0 +1,170 @@
+name: Release
+
+# Builds the Windows client mod and the Windows dedicated server, then publishes
+# both as zip files on a GitHub Release.
+#
+#   skymp-client-<version>.zip      installable with Mod Organizer 2 / Vortex
+#   skymp-server-win-<version>.zip  dedicated server
+#
+# Push a tag like v1.0.0 to publish a release, or run the workflow manually to
+# get the archives as build artifacts without publishing.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version string used in the archive names'
+        required: false
+        default: ''
+      publish:
+        description: 'Create a GitHub Release with the archives'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUILD_TYPE: Release
+  VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+  VCPKG_FEATURE_FLAGS: 'manifests'
+  VCPKG_DISABLE_METRICS: '1'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: 'true'
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            if ($env:GITHUB_REF -like 'refs/tags/*') {
+              $version = $env:GITHUB_REF -replace '^refs/tags/', ''
+            } else {
+              $spVersion = (Get-Content ./skyrim-platform/package.json | ConvertFrom-Json).version
+              $version = "$spVersion+$($env:GITHUB_SHA.Substring(0,7))"
+            }
+          }
+          Write-Host "Version: $version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      # The runner workspace lives on a small volume, and vcpkg buildtrees for
+      # CEF/NodeJS/OpenSSL do not fit there. The root CMakeLists.txt expects
+      # C:/vcpkg when running in CI on Windows.
+      - name: Move vcpkg to a larger drive
+        shell: pwsh
+        run: |
+          $target = 'C:\vcpkg'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'vcpkg'
+          if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          robocopy $source $target /E /NFL /NDL /NJH /NJS /MT:8 | Out-Null
+          if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
+          Remove-Item -Recurse -Force $source
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: C:/vcpkg/bootstrap-vcpkg.bat
+
+      - name: Set up the vcpkg binary cache
+        shell: pwsh
+        run: |
+          $nuget = & 'C:\vcpkg\vcpkg.exe' fetch nuget | Select-Object -Last 1
+          & $nuget sources add `
+            -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+            -storepasswordincleartext `
+            -name "GitHub" `
+            -username "${{ github.repository_owner }}" `
+            -password "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B "${{ github.workspace }}/build" `
+            -DVCPKG_ROOT=C:/vcpkg `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DSKYRIM_VR=OFF `
+            -DBUILD_CLIENT=ON `
+            -DBUILD_SKYRIM_PLATFORM=ON `
+            -DBUILD_FRONT=ON `
+            -DBUILD_FRONT_FROM_LOCAL_SOURCES=ON `
+            -DBUILD_NODEJS=OFF `
+            -DBUILD_UNIT_TESTS=OFF `
+            -DDOWNLOAD_SKYRIM_DATA=OFF `
+            -DPREPARE_NEXUS_ARCHIVES=OFF `
+            -DOFFLINE_MODE=ON `
+            -DUNIFIED_CLIENT_DEPS=ON `
+            -DCPPCOV_PATH=OFF
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build "${{ github.workspace }}/build" --config ${{ env.BUILD_TYPE }}
+
+      - name: Sanity check the build output
+        shell: pwsh
+        run: |
+          $required = @(
+            'build/dist/client/Data/SKSE/Plugins/SkyrimPlatform.dll',
+            'build/dist/client/Data/SKSE/Plugins/MpClientPlugin.dll',
+            'build/dist/client/Data/Platform/Plugins/skymp5-client.js',
+            'build/dist/client/Data/Platform/UI/index.html',
+            'build/dist/client/Data/SKSE/Plugins/version-1-5-97-0.bin',
+            'build/dist/client/Data/SKSE/Plugins/versionlib-1-6-640-0.bin',
+            'build/dist/server/dist_back/skymp5-server.js',
+            'build/dist/server/scam_native.node'
+          )
+          $missing = $required | Where-Object { -not (Test-Path (Join-Path $env:GITHUB_WORKSPACE $_)) }
+          if ($missing) {
+            throw "Missing expected build output:`n$($missing -join "`n")"
+          }
+          Write-Host 'All expected files are present.'
+
+      - name: Package release archives
+        shell: pwsh
+        run: |
+          cmake `
+            -DREPO_DIR="${{ github.workspace }}" `
+            -DDIST_DIR="${{ github.workspace }}/build/dist" `
+            -DOUT_DIR="${{ github.workspace }}/build/release" `
+            -DVERSION="${{ steps.version.outputs.version }}" `
+            -P "${{ github.workspace }}/cmake/scripts/make_release_archives.cmake"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: skymp-client-${{ steps.version.outputs.version }}
+          path: ${{ github.workspace }}/build/release/skymp-client-*.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: skymp-server-win-${{ steps.version.outputs.version }}
+          path: ${{ github.workspace }}/build/release/skymp-server-win-*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          name: SkyMP ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          body_path: ${{ github.workspace }}/misc/release/RELEASE_NOTES.md
+          files: |
+            ${{ github.workspace }}/build/release/skymp-client-*.zip
+            ${{ github.workspace }}/build/release/skymp-server-win-*.zip

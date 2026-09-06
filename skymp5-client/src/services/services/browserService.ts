@@ -5,6 +5,7 @@ import { QueryKeyCodeBindings } from "../events/queryKeyCodeBindings";
 
 import { ClientListener, CombinedController, Sp } from "./clientListener";
 import { BrowserMessageEvent, DxScanCode, Menu, MenuCloseEvent, MenuOpenEvent } from "skyrimPlatform";
+import { SettingsService } from "./settingsService";
 
 const unfocusEventString = `window.dispatchEvent(new CustomEvent('skymp5-client:browserUnfocused', {}))`;
 const focusEventString = `window.dispatchEvent(new CustomEvent('skymp5-client:browserFocused', {}))`;
@@ -27,7 +28,9 @@ export class BrowserService extends ClientListener {
     if (e.isDown([DxScanCode.F1])) {
       FormView.isDisplayingNicknames = !FormView.isDisplayingNicknames;
     }
-    if (e.isDown([DxScanCode.F2])) {
+    // In direct connect mode F2 opens the multiplayer menu instead
+    // (see ConnectMenuService), so it must not also toggle the overlay.
+    if (e.isDown([DxScanCode.F2]) && !this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
       this.sp.browser.setVisible(!this.sp.browser.isVisible());
     }
     if (this.badMenusOpen.size === 0 && e.isDown([DxScanCode.F6])) {

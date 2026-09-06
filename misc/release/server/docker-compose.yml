@@ -1,0 +1,32 @@
+# Runs an already-built SkyMP server (Linux build) in Docker.
+#
+# The Windows release archive contains a Windows-only native module
+# (scam_native.node), so it cannot be used here. Build the Linux server first:
+#
+#   ./build.sh --configure -DBUILD_UNIT_TESTS=OFF
+#   ./build.sh --build
+#
+# That produces build/dist/server, which is what this compose file runs.
+# Then copy your Skyrim master files into build/dist/server/data (see
+# data/PUT-SKYRIM-ESM-FILES-HERE.txt) and run:
+#
+#   docker compose -f misc/release/server/docker-compose.yml up
+#
+# Players connect to <public IP of this host>:7777 from the in-game F2 menu.
+
+services:
+  skymp-server:
+    image: node:22-bookworm-slim
+    working_dir: /server
+    command: ["node", "dist_back/skymp5-server.js"]
+    volumes:
+      # Built server, including its data/ folder with the .esm files
+      - ../../../build/dist/server:/server
+    ports:
+      # Game traffic (UDP, SLikeNet)
+      - "7777:7777/udp"
+      # Server HTTP endpoint: serves data/manifest.json so clients can verify
+      # that their load order matches the server's
+      - "3000:3000/tcp"
+    restart: unless-stopped
+    stop_grace_period: 10s

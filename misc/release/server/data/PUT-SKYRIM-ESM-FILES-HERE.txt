@@ -1,0 +1,16 @@
+Put the master files from your own copy of Skyrim Special Edition here:
+
+  Skyrim.esm
+  Update.esm
+  Dawnguard.esm
+  HearthFires.esm
+  Dragonborn.esm
+
+They live in "<Skyrim Special Edition>\Data" and are not redistributable, which
+is why the server archive ships without them. The load order in
+server-settings.json must match what every connecting player has, in the same
+order.
+
+If you play with extra mods, add their .esp/.esm files here as well and list
+them in "loadOrder" in server-settings.json in exactly the load order the
+clients use.

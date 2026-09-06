@@ -11,6 +11,14 @@ SkyMP is built on top of the [SkyrimPlatform](docs/docs_skyrim_platform.md) - a 
 
 This repo hosts all sources to ease local setup and contributing. See [CONTRIBUTING](CONTRIBUTING.md) for build instructions.
 
+### 直连联机 / Direct connect
+
+这个分支支持不经过任何账号或网关服务的直连联机：客户端用 Mod Organizer 2 安装、SKSE 启动，
+进游戏按 **F2** 填写 `<房主IP>:端口号` 即可。同一个客户端压缩包同时支持 Skyrim SE 1.5.x 和
+AE 1.6.x。做法与实现细节见 [docs/direct_connect.md](docs/direct_connect.md)。
+
+Releases 页提供两个压缩包：客户端 mod（MO2 可直接安装）与 Windows 服务器。
+
 ### Terms of Use
 
 See [TERMS.md](TERMS.md). TL;DR disclose the source code of your forks.

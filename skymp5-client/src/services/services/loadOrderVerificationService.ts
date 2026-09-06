@@ -4,6 +4,8 @@ import { ClientListener, CombinedController, Sp } from "./clientListener";
 import { Mod } from "../messages_http/serverManifest";
 import { logTrace } from "../../logging";
 import { SettingsService } from "./settingsService";
+import { ConnectionMessage } from "../events/connectionMessage";
+import { CreateActorMessage } from "../messages/createActorMessage";
 
 const STATE_KEY = 'loadOrderCheckState';
 
@@ -14,10 +16,41 @@ interface State {
 export class LoadOrderVerificationService extends ClientListener {
   constructor(private sp: Sp, private controller: CombinedController) {
     super();
+
+    // Services are looked up lazily (lookupListener is not usable from a
+    // constructor), so both triggers are registered and each one checks whether
+    // it is the right one for the current mode.
+    //
+    // In direct connect mode the manifest lives on the game server, whose
+    // address is only known once the player has connected. Verifying at
+    // "update" time would always fail and scare the player with a red warning,
+    // so wait until we are actually in the world.
     this.controller.once("update", () => this.onceUpdate());
+    this.controller.emitter.on("createActorMessage", (e) => this.onCreateActorMessage(e));
+  }
+
+  private onCreateActorMessage(e: ConnectionMessage<CreateActorMessage>) {
+    if (!e.message.isMe) {
+      return;
+    }
+    if (!this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
+      return;
+    }
+    this.verifyLoadOrderOnce();
   }
 
   private onceUpdate() {
+    if (this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
+      return;
+    }
+    this.verifyLoadOrderOnce();
+  }
+
+  private verifyLoadOrderOnce() {
+    if (this.verified) {
+      return;
+    }
+    this.verified = true;
     this.verifyLoadOrder();
   }
 
@@ -29,13 +62,19 @@ export class LoadOrderVerificationService extends ClientListener {
     this.printModOrder('Client load order:', clientMods);
     return settingsService.getServerMods()
       .then((serverMods) => {
+        if (serverMods === null) {
+          // Could not reach the server manifest. Nothing verifiable happened,
+          // so stay quiet instead of claiming a load order problem.
+          printConsole('Could not obtain the server load order, skipping the check');
+          return;
+        }
         this.printModOrder('Server load order:', serverMods);
         if (clientMods.length < serverMods.length) {
           throw new Error(`Missing some server mods. Server has ${serverMods.length}, we have ${clientMods.length}`);
         }
         if (clientMods.length > serverMods.length) {
           this.updateText(
-            'LOAD ORDER WARNING: you have more mods than server!\n(or could not receive server mod list)\nCheck console for details.',
+            'LOAD ORDER WARNING: you have more mods than server!\nCheck console for details.',
             [255, 255, 0, 1], 5,
           );
         }
@@ -144,4 +183,6 @@ export class LoadOrderVerificationService extends ClientListener {
       }
     }
   }
+
+  private verified = false;
 }

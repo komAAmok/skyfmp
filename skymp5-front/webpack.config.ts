@@ -7,13 +7,24 @@ const distPath = path.isAbsolute(config.outputPath)
   ? config.outputPath
   : path.resolve(__dirname, config.outputPath);
 
+// This bundle is parsed and executed by the CEF instance embedded in the game on
+// every startup, so release builds go through the production pipeline
+// (minified, no dev-server plumbing, no source maps). Nothing here is
+// stringified or looked up by identifier name, so minification is safe.
+const isDevBuild = process.env['SKYMP_DEV_BUILD'] === 'true';
+
 module.exports = {
   entry: path.resolve(__dirname, "src/index.js"),
   output: {
     path: distPath,
     filename: "build.js",
   },
-  mode: "development",
+  mode: isDevBuild ? "development" : "production",
+  devtool: isDevBuild ? "eval-source-map" : false,
+  performance: {
+    // The bundle inlines fonts and images; the default 250 KiB hint is noise here
+    hints: false,
+  },
   devServer: {
     port: 1234,
     hot: true,

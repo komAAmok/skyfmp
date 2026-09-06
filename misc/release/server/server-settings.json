@@ -1,0 +1,18 @@
+{
+  "name": "My SkyMP Server",
+  "port": 7777,
+  "listenHost": "",
+  "maxPlayers": 16,
+  "offlineMode": true,
+  "dataDir": "data",
+  "loadOrder": [
+    "Skyrim.esm",
+    "Update.esm",
+    "Dawnguard.esm",
+    "HearthFires.esm",
+    "Dragonborn.esm"
+  ],
+  "npcEnabled": false,
+  "npcSettings": {},
+  "logLevel": "info"
+}

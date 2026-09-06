@@ -128,6 +128,15 @@ export class AuthService extends ClientListener {
   private onAuthNeeded(e: AuthNeededEvent) {
     logTrace(this, `Received authNeeded event`);
 
+    const settingsService = this.controller.lookupListener(SettingsService);
+
+    if (settingsService.isDirectConnectMode()) {
+      // ConnectMenuService owns the flow: the player picks the host in the F2
+      // menu and there is no account to authenticate against.
+      logTrace(this, `Direct connect mode, ConnectMenuService handles auth`);
+      return;
+    }
+
     const settingsGameData = this.sp.settings["skymp5-client"]["gameData"] as any;
     const isOfflineMode = Number.isInteger(settingsGameData?.profileId);
     if (isOfflineMode) {
@@ -146,6 +155,10 @@ export class AuthService extends ClientListener {
 
   private onBrowserWindowLoaded(e: BrowserWindowLoadedEvent) {
     logTrace(this, `Received browserWindowLoaded event`);
+
+    if (this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
+      return;
+    }
 
     this.trigger.browserWindowLoadedFired = true;
     if (this.trigger.conditionMet) {
@@ -590,6 +603,11 @@ export class AuthService extends ClientListener {
   private handleConnectionDenied(e: ConnectionDenied) {
     this.authAttemptProgressIndicator = false;
 
+    if (this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
+      // ConnectMenuService reports this to the player instead
+      return;
+    }
+
     if (e.error.toLowerCase().includes("invalid password")) {
       this.controller.once("tick", () => {
         this.controller.lookupListener(NetworkingService).close();
@@ -656,6 +674,15 @@ export class AuthService extends ClientListener {
     const maxLoggingDelay = 15000;
     if (this.loggingStartMoment && Date.now() - this.loggingStartMoment > maxLoggingDelay) {
       logTrace(this, 'Max logging delay reached received');
+
+      if (this.controller.lookupListener(SettingsService).isDirectConnectMode()) {
+        // No account to re-authenticate and no login widget of ours to show.
+        // Drop the stalled attempt; ConnectMenuService reports the state.
+        this.loggingStartMoment = 0;
+        this.authAttemptProgressIndicator = false;
+        this.controller.lookupListener(NetworkingService).reconnect();
+        return;
+      }
 
       if (this.playerEverSawActualGameplay) {
         logTrace(this, 'Player saw actual gameplay, reconnecting');

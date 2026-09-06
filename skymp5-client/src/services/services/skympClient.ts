@@ -27,6 +27,16 @@ export class SkympClient extends ClientListener {
 
     this.controller.emitter.on("createActorMessage", (e) => this.onActorCreateMessage(e));
 
+    // Always listened to: in direct connect mode the player can pick a different
+    // host at any time (F2), which re-emits authAttempt long after the first
+    // connection. Registering this only when storage was empty made every
+    // subsequent attempt a no-op.
+    //
+    // This is safe for the master-API flow too: authAttempt is only ever emitted
+    // there while an auth dialog is up, which in turn only happens when storage
+    // had no credentials.
+    this.controller.emitter.on("authAttempt", (e) => this.onAuthAttempt(e));
+
     // TODO: refactor out very similar code in frontHotReloadService.ts
     const authGameData = storage[authGameDataStorageKey] as AuthGameData | undefined;
 
@@ -42,7 +52,6 @@ export class SkympClient extends ClientListener {
       this.controller.once("tick", () => {
         this.controller.emitter.emit("authNeeded", {});
       });
-      this.controller.emitter.on("authAttempt", (e) => this.onAuthAttempt(e));
     }
   }
 
@@ -78,6 +87,13 @@ export class SkympClient extends ClientListener {
   }
 
   private ctor() {
+    // Direct connect lets the player retry or switch hosts, so startClient may
+    // run more than once. Hooks must be installed exactly once.
+    if (this.hooksInstalled) {
+      return;
+    }
+    this.hooksInstalled = true;
+
     // TODO: refactor into service
     setupHooks();
 
@@ -101,4 +117,6 @@ export class SkympClient extends ClientListener {
       },
     );
   }
+
+  private hooksInstalled = false;
 }

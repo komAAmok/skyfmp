@@ -50,15 +50,30 @@ export class NetworkingService extends ClientListener {
   }
 
   connect(hostName: string, port: number) {
+    const current = this.serverAddress;
+    const addressChanged = current.hostName !== hostName || current.port !== port;
+
+    if (addressChanged) {
+      // Tear down any in-flight attempt to the previous host, otherwise the old
+      // socket keeps retrying in the background for its whole timeout.
+      this.sp.mpClientPlugin.destroyClient();
+    }
+
     this.serverAddress = { hostName, port };
+    this.reconnectAttempts = 0;
+    this.reconnectAtMs = 0;
     this.createClientSafe();
   }
 
   reconnect() {
-    this.createClientSafe();
+    this.scheduleReconnect();
   }
 
   close() {
+    // Cancel a pending reconnect, otherwise an explicit disconnect would be
+    // silently undone a second later.
+    this.reconnectAtMs = 0;
+    this.reconnectAttempts = 0;
     this.sp.mpClientPlugin.destroyClient();
   }
 
@@ -66,23 +81,49 @@ export class NetworkingService extends ClientListener {
     return this.sp.mpClientPlugin.isConnected();
   }
 
+  /**
+   * Retrying immediately on every failure means a typo in the address produces a
+   * tight loop of connection attempts. Back off instead, capped so that a
+   * recoverable hiccup still reconnects promptly.
+   */
+  private scheduleReconnect() {
+    const { hostName, port } = this.serverAddress;
+    if (hostName === "" || port === 0) {
+      // Nothing to reconnect to yet (no address chosen). Retrying would just log
+      // an error every tick.
+      return;
+    }
+
+    const delayMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
+    this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 10);
+    this.reconnectAtMs = Date.now() + delayMs;
+    logTrace(this, `Reconnect scheduled in ${delayMs} ms`);
+  }
+
   private onTick() {
+    if (this.reconnectAtMs !== 0 && Date.now() >= this.reconnectAtMs) {
+      this.reconnectAtMs = 0;
+      this.createClientSafe();
+    }
+
     this.sp.mpClientPlugin.tick((packetType, rawContent, error) => {
       switch (packetType) {
         case "connectionAccepted":
+          this.reconnectAttempts = 0;
+          this.reconnectAtMs = 0;
           this.controller.emitter.emit("connectionAccepted", {});
           break;
         case "connectionDenied":
           this.controller.emitter.emit("connectionDenied", { error });
-          this.reconnect();
+          this.scheduleReconnect();
           break;
         case "connectionFailed":
           this.controller.emitter.emit("connectionFailed", {});
-          this.reconnect();
+          this.scheduleReconnect();
           break;
         case "disconnect":
           this.controller.emitter.emit("connectionDisconnect", {});
-          this.reconnect();
+          this.scheduleReconnect();
           break;
         case "message":
           // TODO: in theory can be empty jsonContent and non-empty error
@@ -231,4 +272,7 @@ export class NetworkingService extends ClientListener {
         throw new NeverError(reliability);
     }
   }
+
+  private reconnectAttempts = 0;
+  private reconnectAtMs = 0;
 };

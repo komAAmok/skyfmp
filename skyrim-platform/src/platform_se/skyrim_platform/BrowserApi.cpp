@@ -85,6 +85,7 @@ void Register(Napi::Env env, Napi::Object& exports)
                   }));
       browser.Set("executeJavaScript",
                   Napi::Function::New(env, [](const Napi::CallbackInfo&) {}));
+      break;
     case Backend::kTilted:
       browser.Set(
         "getBackend",
