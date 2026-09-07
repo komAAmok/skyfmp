@@ -10,7 +10,8 @@ Hamachi、家宽端口转发、公网 VPS、Docker 都是同一套流程，因�
 发布页有两个压缩包，各自内含中英双语 `README.md`：
 
 * `skymp-client-*.zip` —— 客户端 mod，MO2 安装，SKSE 启动，F2 连接。
-* `skymp-server-win-*.zip` —— Windows 服务器，放入 esm 后运行 `start-server.bat`。
+* `skymp-server-win-*.zip` —— Windows 服务器，放入 esm 后双击 `skymp-server.exe` 启动
+  （运行时已内置，无需安装 Node.js；`start-server.bat` 等价）。
 
 ## 模式是怎么判定的
 

@@ -70,6 +70,21 @@ Vortex 或手动安装同样可行：把压缩包内容解压到 `Skyrim Special
 5. 界面提示"房主使用的 mod 版本与你不一致"：双方需要用同一个版本的本 mod。
 6. 更多线索看游戏控制台（`` ` ``）和 `My Documents\My Games\Skyrim Special Edition\SKSE\SkyrimPlatform.log`。
 
+### 7. 装了本 mod 之后出现新弹窗？
+
+本 mod 只安装 SKSE 插件、脚本和界面文件，不包含任何动画/行为/网格文件，不会破坏其他 mod。
+装它之前你多半是直接启动 `SkyrimSE.exe` 的 —— 本 mod 要求用 **SKSE 启动**，于是有些
+SKSE 插件第一次被真正加载，它们的自检也就第一次触发：
+
+* **`The cosave file could not be opened! … OS Error Code: 0x80070002`**
+  来自存档加速 mod **S.L.A.C.K.**，表示当前存档旁边没有它的 co-save 文件（旧存档普遍如此）。
+  进游戏读档后**重新保存一次**即可，以后不再弹；不想要这个功能可以在 MO2 里禁用 S.L.A.C.K.。
+* **`SkyParkour Warning: 1st Person Behavior is not generated properly`**
+  来自跑酷 mod **SkyParkour**：它的行为文件没有生成。在 MO2 里运行 **Nemesis**
+  （勾选 SkyParkour 和你的动画 mod），生成后重新进游戏即可。
+
+这两个弹窗都不影响联机功能，按上面各处理一次即可消除。
+
 ---
 
 ## English

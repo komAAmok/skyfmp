@@ -4,6 +4,7 @@ import { Octokit } from '@octokit/rest';
 import { RequestError as OctokitRequestError } from '@octokit/request-error';
 import { ArgumentParser } from 'argparse';
 import lodash from 'lodash';
+import { resolveInServerRoot } from './serverRoot';
 
 export interface DiscordGuildConfig {
   guildId: string;
@@ -53,10 +54,10 @@ export class Settings {
   }
 
   private async loadSettings() {
-    if (fs.existsSync('./skymp5-gamemode')) {
-      this.gamemodePath = './skymp5-gamemode/gamemode.js';
+    if (fs.existsSync(resolveInServerRoot('skymp5-gamemode'))) {
+      this.gamemodePath = resolveInServerRoot('skymp5-gamemode/gamemode.js');
     } else {
-      this.gamemodePath = './gamemode.js';
+      this.gamemodePath = resolveInServerRoot('gamemode.js');
     }
 
     const settings = await fetchServerSettings();
@@ -77,6 +78,14 @@ export class Settings {
         (this as Record<string, unknown>)[prop] = settings[prop];
       }
     });
+
+    // Everything is resolved relative to the executable's directory; the C++
+    // side reads the master files through dataDir, so it must be absolute
+    // regardless of where the server was launched from.
+    this.dataDir = resolveInServerRoot(this.dataDir);
+    if (this.gamemodePath) {
+      this.gamemodePath = resolveInServerRoot(this.gamemodePath);
+    }
 
     this.allSettings = settings;
   }
@@ -133,7 +142,7 @@ async function getCommitHashFromRef(octokit: Octokit, owner: string, repo: strin
 
 async function fetchServerSettings(): Promise<any> {
   // Load server-settings.json
-  const settingsPath = 'server-settings.json';
+  const settingsPath = resolveInServerRoot('server-settings.json');
   const rawSettings = fs.readFileSync(settingsPath, 'utf8');
   let serverSettingsFile = JSON.parse(rawSettings);
 
@@ -177,7 +186,7 @@ async function fetchServerSettings(): Promise<any> {
     dumpFileNameSuffix += `-${commitHash}`;
   }
 
-  const dumpFileName = `server-settings-dump.json`;
+  const dumpFileName = resolveInServerRoot('server-settings-dump.json');
 
   const readDump: Record<string, unknown> | undefined = fs.existsSync(dumpFileName) ? JSON.parse(fs.readFileSync(dumpFileName, 'utf-8')) : undefined;
 
@@ -309,7 +318,7 @@ async function fetchServerSettings(): Promise<any> {
   console.log(`Merging "server-settings.json" (original settings file)`);
   serverSettings = lodash.merge(serverSettings, serverSettingsFile);
 
-  fs.writeFileSync('server-settings-merged.json', JSON.stringify(serverSettings, null, 2));
+  fs.writeFileSync(resolveInServerRoot('server-settings-merged.json'), JSON.stringify(serverSettings, null, 2));
 
   return serverSettings;
 }

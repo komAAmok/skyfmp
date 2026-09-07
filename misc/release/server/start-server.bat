@@ -2,18 +2,24 @@
 setlocal
 
 rem SkyMP dedicated server launcher (Windows).
-rem Run this file to start the server. Keep the window open while playing.
+rem Double-click skymp-server.exe instead - this batch file is only a
+rem compatibility shortcut that does the same thing.
 
 cd /d "%~dp0"
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo.
-  echo [ERROR] Node.js was not found in PATH.
-  echo Install Node.js 22 or newer from https://nodejs.org/ and run this file again.
-  echo.
-  pause
-  exit /b 1
+rem Prefer the Node.js runtime bundled with the archive, fall back to PATH.
+set "NODE_EXE=%~dp0node.exe"
+if not exist "%NODE_EXE%" (
+  where node >nul 2>nul
+  if errorlevel 1 (
+    echo.
+    echo [ERROR] Neither node.exe next to this file nor Node.js in PATH were found.
+    echo Re-extract the server archive fully.
+    echo.
+    pause
+    exit /b 1
+  )
+  set "NODE_EXE=node"
 )
 
 if not exist "data\Skyrim.esm" (
@@ -31,7 +37,7 @@ echo Starting SkyMP server...
 echo Players connect with the address ^<this machine's IP^>:7777 (F2 in game).
 echo.
 
-node dist_back\skymp5-server.js
+"%NODE_EXE%" dist_back\skymp5-server.js
 set EXIT_CODE=%ERRORLEVEL%
 
 echo.

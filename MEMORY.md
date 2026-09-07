@@ -157,6 +157,21 @@
 
 ## 六、有用的上下文
 
+- **2026-09-07 服务器 exe 化（已提交并推送）**：Windows 服务器 zip 现在用
+  **`skymp-server.exe` 双击启动**（zip 自带 `node.exe` 运行时，玩家不再需要装 Node.js）。
+  方案：C# 启动器（`tools/server-launcher/Launcher.cs`，用 .NET Framework 自带 csc.exe
+  编译）把工作目录切到 exe 所在目录后拉起 `node.exe dist_back\skymp5-server.js`。
+  release.yml 里 `actions/setup-node@v4`（node 22）+ `csc` 编译启动器，打包脚本
+  （`make_release_archives.cmake`）把 exe/node.exe/dist_back 一起打 zip。
+  **为什么不用 Node SEA**：SEA 的 require 无法加载磁盘上的 .node 原生模块
+  （实测报 `ERR_UNKNOWN_BUILTIN_MODULE`），而 scam_native.node 必须从磁盘 dlopen。
+  服务器 TS 改造：新增 `ts/serverRoot.ts` —— 所有运行时文件（scam_native.node、
+  server-settings.json/dump/merged、gamemode.js、dataDir、sourcemap）都改为基于
+  **exe 目录**解析（存在 server-settings.json 或 scam_native.node 即判定），
+  普通 `node dist_back/...` 开发运行则回退 CWD（已双重验证）。**协议/频率未动**；
+  C++ 无频率可调项，JS 主循环本来就是 1ms tick（ScampServer::Tick），延迟已最低。
+  注意：csc 编译路径 `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe`。
+
 - **2026-09-06 更新（已提交并推送）**：按用户要求移除了 Linux 和 Skyrim VR 支持，
   并修复了 GitHub Actions 的失败。删除的 workflow：`pr-linux-variants.yml`、
   `linux-build-base.yml`、`build-docker-images.yml`（Linux CI）、

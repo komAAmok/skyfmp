@@ -1,14 +1,24 @@
 import * as ui from "./ui";
+import { serverRoot } from "./serverRoot";
 
 // @ts-ignore
 import * as sourceMapSupport from "source-map-support";
 sourceMapSupport.install({
   retrieveSourceMap: function (source: string) {
     if (source.endsWith('skymp5-server.js')) {
-      return {
-        url: 'original.js',
-        map: require('fs').readFileSync('dist_back/skymp5-server.js.map', 'utf8')
-      };
+      try {
+        return {
+          url: 'original.js',
+          map: require('fs').readFileSync(
+            require('path').join(serverRoot, 'dist_back/skymp5-server.js.map'),
+            'utf8'
+          )
+        };
+      } catch {
+        // The packaged executable has no source map next to it; stack traces
+        // simply won't be mapped to TypeScript source. Not fatal.
+        return null;
+      }
     }
     return null;
   }
@@ -129,7 +139,9 @@ const setupGamemode = (server: any, gamemodePath: string) => {
     if (path.isAbsolute(p)) {
       return p;
     }
-    return path.resolve("", p);
+    // Relative to the server executable's directory, not the working
+    // directory: the packaged server is started by double-clicking the exe.
+    return path.join(serverRoot, p);
   };
 
   const absoluteGamemodePath = toAbsolute(gamemodePath);

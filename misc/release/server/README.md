@@ -9,14 +9,15 @@
 
 ### 1. 准备
 
-* 安装 [Node.js](https://nodejs.org/) 22 或更高版本。
+* **不需要安装 Node.js** —— 服务器已自带运行时（压缩包里的 `node.exe`）。
 * 把你自己的 Skyrim Special Edition 的 5 个主文件复制到本目录下的 `data\` 文件夹：
   `Skyrim.esm`、`Update.esm`、`Dawnguard.esm`、`HearthFires.esm`、`Dragonborn.esm`。
   （版权原因不能随包分发，详见 `data\PUT-SKYRIM-ESM-FILES-HERE.txt`。）
 
 ### 2. 启动
 
-双击 `start-server.bat`。窗口保持打开即为运行中，关闭窗口即停止服务器。
+双击 **`skymp-server.exe`**（等价的 `start-server.bat` 也可）。窗口保持打开即为运行中，
+关闭窗口即停止服务器。
 
 ### 3. 让玩家连进来
 
@@ -24,7 +25,7 @@
 
 | 组网方式 | 玩家填写的地址 | 需要额外做的事 |
 | --- | --- | --- |
-| 同一局域网 | `192.168.x.x:7777`（房主内网 IP，用 `ipconfig` 查看） | Windows 防火墙放行 `node.exe` 的 UDP 入站 |
+| 同一局域网 | `192.168.x.x:7777`（房主内网 IP，用 `ipconfig` 查看） | Windows 防火墙放行本目录下 `node.exe` 的 UDP 入站 |
 | Radmin VPN / Hamachi | 房主在该虚拟网卡上的 IP，例如 `26.x.x.x:7777` | 双方都加入同一个虚拟网络 |
 | 公网 VPS / 云主机 | `<公网IP>:7777` | 安全组/防火墙放行 7777/UDP（和 3000/TCP，可选） |
 | 家宽 + 端口转发 | `<公网IP>:7777` | 路由器把 7777/UDP 转发到房主电脑 |
@@ -64,6 +65,8 @@
 
 ### 7. 常见问题
 
+* **双击 `skymp-server.exe` 窗口一闪而过** — 压缩包没有解压完整（缺 `node.exe` 或
+  `dist_back\` 里的文件）。重新完整解压；也可用 `start-server.bat` 查看具体报错。
 * **连不上，客户端显示 "无法连接到房主"** — 端口没放行（记得是 UDP），或地址填错。
   先在房主机器上用 `127.0.0.1:7777` 自测，能连上说明服务器本身正常，问题在网络层。
 * **服务器窗口报 `data/Skyrim.esm` 找不到** — esm 文件没放进 `data\`。
@@ -79,14 +82,15 @@
 
 ### Requirements
 
-* [Node.js](https://nodejs.org/) 22 or newer.
+* No Node.js installation needed — the archive bundles `node.exe`.
 * The five Skyrim Special Edition master files copied into `data\`
   (`Skyrim.esm`, `Update.esm`, `Dawnguard.esm`, `HearthFires.esm`, `Dragonborn.esm`).
   They are not redistributable — see `data\PUT-SKYRIM-ESM-FILES-HERE.txt`.
 
 ### Running
 
-Double-click `start-server.bat` and leave the window open.
+Double-click **`skymp-server.exe`** (`start-server.bat` does the same) and leave
+the window open.
 
 The server listens on **all interfaces, port 7777/UDP** by default. Players enter
 `<host address>:7777` in the in-game menu (**F2**):

@@ -93,7 +93,29 @@ endif()
 set(SERVER_STAGE "${STAGE_DIR}/server")
 file(MAKE_DIRECTORY "${SERVER_STAGE}")
 
-file(COPY "${SERVER_DIST_DIR}/dist_back" DESTINATION "${SERVER_STAGE}")
+# The TypeScript bundle. The source map is a debugging aid for a ~10 MB
+# download, ship only the code itself.
+file(MAKE_DIRECTORY "${SERVER_STAGE}/dist_back")
+file(COPY "${SERVER_DIST_DIR}/dist_back/skymp5-server.js"
+  DESTINATION "${SERVER_STAGE}/dist_back")
+
+# Single-executable entry point and the Node runtime it launches. Both are
+# produced by release.yml ("Assemble the server executable package"); local
+# runs of this script may not have them, in which case only start-server.bat
+# will work.
+set(SERVER_LAUNCHER "${SERVER_DIST_DIR}/skymp-server.exe")
+if(EXISTS "${SERVER_LAUNCHER}")
+  file(COPY "${SERVER_LAUNCHER}" DESTINATION "${SERVER_STAGE}")
+else()
+  message(WARNING "skymp-server.exe not found in ${SERVER_DIST_DIR}; the zip will contain start-server.bat only")
+endif()
+
+set(SERVER_NODE "${SERVER_DIST_DIR}/node.exe")
+if(EXISTS "${SERVER_NODE}")
+  file(COPY "${SERVER_NODE}" DESTINATION "${SERVER_STAGE}")
+else()
+  message(WARNING "node.exe not found in ${SERVER_DIST_DIR}; players would need Node.js installed")
+endif()
 
 file(GLOB server_native "${SERVER_DIST_DIR}/*.node" "${SERVER_DIST_DIR}/*.dll")
 if(NOT server_native)

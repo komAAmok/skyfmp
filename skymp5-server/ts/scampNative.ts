@@ -1,4 +1,6 @@
-const scampNativeNode = require(process.cwd() + "/scam_native.node");
+import { resolveInServerRoot } from "./serverRoot";
+
+const scampNativeNode = require(resolveInServerRoot("scam_native.node"));
 
 export declare interface Bot {
   destroy(): void;
