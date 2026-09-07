@@ -177,6 +177,19 @@
   另外 runner 会被复用，`C:\vcpkg` 可能残留上一轮副本，删除失败无碍
   （robocopy /E 是合并复制），已做成 best-effort。
 
+- **玩家反馈的两个游戏内弹窗（与 skymp 无关，是第三方 mod）**：
+  - `The cosave file could not be opened! THE GAME IS NOT FULLY LOADED. OS Error Code: 0x80070002`
+    —— 来自 **S.L.A.C.K. (Save Load Accelerator for SKSE Cosaves)**。0x80070002 =
+    ERROR_FILE_NOT_FOUND；读档时找不到对应 `<存档名>.skse` co-save 文件就会弹。
+    常见原因：读的是装 S.L.A.C.K./SKSE 之前存的旧档；或 MO2 换了存档目录。
+    解决：进游戏重新存一次档（生成 cosave），或卸载 S.L.A.C.K.。
+    （源码佐证：github.com/just-harry/save-load-accelerator-for-skse-cosaves，
+    `mod/slack_mod/save_load.d` 1611-1642 行。）
+  - `SkyParkour Warning: 1st Person Behavior is not generated properly. Animations will not play`
+    —— 来自 **SkyParkour** mod 自检：行为文件没有用 Nemesis 重新生成。
+    解决：装 Nemesis Unlimited Behavior Engine，勾选所需补丁后运行，
+    并确保 MO2 里 Nemesis 输出 esp/网格已启用。
+
 - 构建命令（见 `CLAUDE.md`）：必须在 `build/` 目录里跑 `cmake --build .`；
   测试 `ctest --verbose`；单个测试 `./unit/unit [Tag]`。
 - 本地打包发布 zip：
