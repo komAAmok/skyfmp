@@ -171,17 +171,19 @@ jobs:
         run: |
           # 1. Node runtime the packaged server will run on. N-API modules are
           # ABI-stable, so the LTS release works with the built scam_native.node.
+          $ws = $env:GITHUB_WORKSPACE
           $nodeExe = (node -p "process.execPath")
-          Copy-Item $nodeExe "${{ github.workspace }}/build/dist/server/node.exe"
+          Copy-Item $nodeExe "$ws\build\dist\server\node.exe"
 
           # 2. Double-click launcher (sets the working directory and spawns
           # node.exe), compiled with the .NET Framework csc.exe that ships
-          # with Windows - no toolchain install needed.
+          # with Windows - no toolchain install needed. Note: csc.exe treats
+          # forward slashes as option separators, so paths must use backslashes.
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
           if (-not (Test-Path $csc)) { throw "csc.exe not found at $csc" }
           & $csc /nologo /optimize+ `
-            /out:"${{ github.workspace }}/build/dist/server/skymp-server.exe" `
-            "${{ github.workspace }}/tools/server-launcher/Launcher.cs"
+            /out:"$ws\build\dist\server\skymp-server.exe" `
+            "$ws\tools\server-launcher\Launcher.cs"
           if ($LASTEXITCODE -ne 0) { throw "Launcher build failed with exit code $LASTEXITCODE" }
           Write-Host "Server package assembled: skymp-server.exe + node.exe"
 

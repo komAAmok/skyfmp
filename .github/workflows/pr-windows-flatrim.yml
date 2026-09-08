@@ -100,13 +100,16 @@ jobs:
       - name: Build the server launcher
         shell: pwsh
         run: |
+          # csc.exe treats forward slashes as option separators, so the paths
+          # must use backslashes.
+          $ws = $env:GITHUB_WORKSPACE
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
           if (-not (Test-Path $csc)) { throw "csc.exe not found at $csc" }
           & $csc /nologo /optimize+ `
-            /out:"${{ github.workspace }}/build/dist/server/skymp-server.exe" `
-            "${{ github.workspace }}/tools/server-launcher/Launcher.cs"
+            /out:"$ws\build\dist\server\skymp-server.exe" `
+            "$ws\tools\server-launcher\Launcher.cs"
           if ($LASTEXITCODE -ne 0) { throw "Launcher build failed with exit code $LASTEXITCODE" }
-          if (-not (Test-Path "${{ github.workspace }}/build/dist/server/skymp-server.exe")) {
+          if (-not (Test-Path "$ws\build\dist\server\skymp-server.exe")) {
             throw "skymp-server.exe was not produced"
           }
 
